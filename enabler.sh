@@ -1,8 +1,9 @@
+```bash
 #!/usr/bin/env bash
 
 set -e
 
-echo "=== [1/4] Localizando Widevine CDM (desde Waterfox o Firefox) ==="
+echo "=== [1/4] Locating Widevine CDM (from Waterfox or Firefox) ==="
 
 POSSIBLE_SOURCES=(
     "$HOME/.waterfox"
@@ -24,7 +25,7 @@ for base_dir in "${POSSIBLE_SOURCES[@]}"; do
                     if [ -d "$p/gmp/Linux_x86_64-gcc3/gmp-widevinecdm" ]; then
                         SOURCE_GMP_WIDEVINE="$p/gmp/Linux_x86_64-gcc3/gmp-widevinecdm"
                     fi
-                    echo "-> Encontrado Widevine en: $SOURCE_WIDEVINE"
+                    echo "-> Widevine found at: $SOURCE_WIDEVINE"
                     break 2
                 fi
             fi
@@ -33,18 +34,18 @@ for base_dir in "${POSSIBLE_SOURCES[@]}"; do
 done
 
 if [ -z "$SOURCE_WIDEVINE" ]; then
-    echo "No se encontró Widevine automáticamente en las rutas estándar."
-    read -rp "Ingresa la ruta completa a la carpeta 'gmp-widevinecdm': " MANUAL_SRC
+    echo "Widevine was not found automatically in the standard locations."
+    read -rp "Enter the full path to the 'gmp-widevinecdm' directory: " MANUAL_SRC
     if [ -d "$MANUAL_SRC" ] && find "$MANUAL_SRC" -name "libwidevinecdm.so" -quit 2>/dev/null; then
         SOURCE_WIDEVINE="$MANUAL_SRC"
     else
-        echo "Error: La ruta provista no contiene 'libwidevinecdm.so'."
+        echo "Error: The specified path does not contain 'libwidevinecdm.so'."
         exit 1
     fi
 fi
 
 echo ""
-echo "=== [2/4] Detectando instalación y binario de Zen Browser ==="
+echo "=== [2/4] Detecting Zen Browser installation and executable ==="
 
 ZEN_BIN=""
 POSSIBLE_BINS=(
@@ -75,19 +76,19 @@ if [ -z "$ZEN_BIN" ]; then
 fi
 
 if [ -z "$ZEN_BIN" ]; then
-    echo "No se detectó automáticamente el binario de Zen Browser."
+    echo "Zen Browser's executable could not be detected automatically."
     while [ -z "$ZEN_BIN" ]; do
-        read -rp "Por favor ingresa la ruta completa al ejecutable de Zen Browser: " USER_INPUT_BIN
+        read -rp "Please enter the full path to the Zen Browser executable: " USER_INPUT_BIN
         USER_INPUT_BIN="${USER_INPUT_BIN/#\~/$HOME}"
         if [ -x "$USER_INPUT_BIN" ] || [ -f "$USER_INPUT_BIN" ]; then
             ZEN_BIN="$USER_INPUT_BIN"
         else
-            echo "Ruta no válida o el archivo no es ejecutable: $USER_INPUT_BIN"
+            echo "Invalid path or file is not executable: $USER_INPUT_BIN"
         fi
     done
 fi
 
-echo "-> Binario de Zen detectado en: $ZEN_BIN"
+echo "-> Zen executable detected at: $ZEN_BIN"
 
 REAL_ZEN_BIN="$ZEN_BIN"
 if [ -L "$ZEN_BIN" ]; then
@@ -101,8 +102,7 @@ if [ -L "$ZEN_BIN" ]; then
 fi
 
 echo ""
-echo "=== [3/4] Configurando compatibilidad de Sandbox (Evitar Crash de Widevine) ==="
-
+echo "=== [3/4] Configuring sandbox compatibility (preventing Widevine crashes) ==="
 
 IS_SOAR=0
 SOAR_PACKAGE_DIR=""
@@ -115,9 +115,9 @@ for p in "$HOME"/.local/share/soar/packages/zen-browser-*; do
 done
 
 if [ "$IS_SOAR" -eq 1 ] && [ -n "$SOAR_PACKAGE_DIR" ]; then
-    echo "-> Detectada instalación mediante Soar en: $SOAR_PACKAGE_DIR"
+    echo "-> Soar installation detected at: $SOAR_PACKAGE_DIR"
     echo "MOZ_DISABLE_GMP_SANDBOX=1" > "$SOAR_PACKAGE_DIR/zen-browser.env"
-    
+
     WRAPPER_PATH="$HOME/.local/share/soar/bin/zen-browser-wrapper"
     cat << WRAPPER_EOF > "$WRAPPER_PATH"
 #!/usr/bin/env bash
@@ -126,15 +126,14 @@ exec "$SOAR_PACKAGE_DIR/zen-browser" "\$@"
 WRAPPER_EOF
     chmod +x "$WRAPPER_PATH"
     ln -sf "$WRAPPER_PATH" "$HOME/.local/share/soar/bin/zen-browser"
-    echo "   ✔ Wrapper de Soar configurado correctamente."
+    echo "   ✔ Soar wrapper configured successfully."
 else
-    echo "-> Verificando entorno para binario: $REAL_ZEN_BIN"
+    echo "-> Checking environment for executable: $REAL_ZEN_BIN"
 
     if [[ "$REAL_ZEN_BIN" == "$HOME"* ]] && [ -f "$REAL_ZEN_BIN" ]; then
         ENV_FILE="${REAL_ZEN_BIN}.env"
         echo "MOZ_DISABLE_GMP_SANDBOX=1" >> "$ENV_FILE" 2>/dev/null || true
     fi
-    
 
     mkdir -p "$HOME/.local/bin"
     cat << WRAPPER_EOF > "$HOME/.local/bin/zen-browser"
@@ -143,11 +142,11 @@ export MOZ_DISABLE_GMP_SANDBOX=1
 exec "$REAL_ZEN_BIN" "\$@"
 WRAPPER_EOF
     chmod +x "$HOME/.local/bin/zen-browser"
-    echo "   ✔ Lanzador seguro creado en ~/.local/bin/zen-browser"
+    echo "   ✔ Safe launcher created at ~/.local/bin/zen-browser"
 fi
 
 echo ""
-echo "=== [4/4] Aplicando Widevine a perfiles de Zen Browser ==="
+echo "=== [4/4] Applying Widevine to Zen Browser profiles ==="
 
 ZEN_PROFILES_DIR=""
 for candidate_dir in "$HOME/.config/zen" "$HOME/.zen"; do
@@ -158,14 +157,13 @@ for candidate_dir in "$HOME/.config/zen" "$HOME/.zen"; do
 done
 
 if [ -z "$ZEN_PROFILES_DIR" ]; then
-    echo "No se encontró el directorio de perfiles predeterminado (~/.config/zen o ~/.zen)."
-    read -rp "Ingresa la ruta a la carpeta de perfiles de Zen: " USER_PROFILES
+    echo "The default profile directory (~/.config/zen or ~/.zen) was not found."
+    read -rp "Enter the path to the Zen profiles directory: " USER_PROFILES
     USER_PROFILES="${USER_PROFILES/#\~/$HOME}"
     ZEN_PROFILES_DIR="$USER_PROFILES"
 fi
 
-echo "-> Carpeta de perfiles: $ZEN_PROFILES_DIR"
-
+echo "-> Profiles directory: $ZEN_PROFILES_DIR"
 
 killall -q zen zen-bin 2>/dev/null || true
 sleep 1
@@ -175,9 +173,9 @@ for profile_dir in "$ZEN_PROFILES_DIR"/*; do
     if [ -d "$profile_dir" ] && [ -f "$profile_dir/prefs.js" ]; then
         PROFILES_FOUND=$((PROFILES_FOUND + 1))
         profile_name=$(basename "$profile_dir")
-        echo "--> Configurando perfil: $profile_name"
+        echo "--> Configuring profile: $profile_name"
 
-        # 1. Copiar componentes Widevine
+        # 1. Copy Widevine components
         mkdir -p "$profile_dir/gmp-widevinecdm"
         cp -r "$SOURCE_WIDEVINE"/* "$profile_dir/gmp-widevinecdm/"
 
@@ -186,9 +184,8 @@ for profile_dir in "$ZEN_PROFILES_DIR"/*; do
             cp -r "$SOURCE_GMP_WIDEVINE"/* "$profile_dir/gmp/Linux_x86_64-gcc3/gmp-widevinecdm/" 2>/dev/null || true
         fi
 
-
         cat << 'USERJS' > "$profile_dir/user.js"
-// Configuración DRM / Widevine CDM
+// DRM / Widevine CDM configuration
 user_pref("browser.eme.ui.enabled", true);
 user_pref("browser.eme.ui.firstContentShown", true);
 user_pref("media.eme.enabled", true);
@@ -221,14 +218,15 @@ user_pref("media.gmp-widevinecdm.version", "4.10.3050.0");
 user_pref("media.gmp-widevinecdm.visible", true);
 PREFS
 
-        echo "   ✔ Perfil '$profile_name' configurado exitosamente."
+        echo "   ✔ Profile '$profile_name' configured successfully."
     fi
 done
 
 if [ "$PROFILES_FOUND" -eq 0 ]; then
-    echo "Aviso: No se encontraron perfiles con 'prefs.js' en $ZEN_PROFILES_DIR."
-    echo "Si acabas de instalar Zen, ábrelo al menos una vez para generar el perfil y vuelve a ejecutar este script."
+    echo "Warning: No profiles containing 'prefs.js' were found in $ZEN_PROFILES_DIR."
+    echo "If you have just installed Zen, open it at least once to generate a profile, then run this script again."
 fi
 
 echo ""
-echo "=== ¡Listo! Widevine DRM configurado correctamente para Zen Browser ==="
+echo "=== Done! Widevine DRM has been configured for Zen Browser ==="
+```
