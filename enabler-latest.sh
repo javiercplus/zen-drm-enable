@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Instala Widevine CDM en Zen Browser descargándolo directamente de Mozilla/Google.
-# Uso: ./zen-widevine.sh [--no-gmp-sandbox]
+# Installs the Widevine CDM into Zen Browser by downloading it directly from Mozilla/Google.
+# Usage: ./zen-widevine.sh [--no-gmp-sandbox]
 
 set -euo pipefail
 
 DISABLE_SANDBOX=0
 [ "${1:-}" = "--no-gmp-sandbox" ] && DISABLE_SANDBOX=1
 
-# Versión de Firefox que se "simula" al consultar el servicio de actualizaciones.
-# Zen está basado en Firefox; ajusta si hace falta.
+# Firefox version that is "simulated" when querying the update service.
+# Zen is based on Firefox; adjust if needed.
 FF_VERSION="${FF_VERSION:-128.0}"
 BUILD_ID="20260101000000"
 FF_CANDIDATES=(${FF_VERSION:-} 145.0 147.0 150.0 143.0 140.0)
@@ -18,17 +18,17 @@ get_attr() { sed -n "s/.*[[:space:]]$1=\"\([^\"]*\)\".*/\1/p" <<< "$2"; }
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
 
-echo "=== [1/4] Consultando y descargando Widevine CDM ==="
+echo "=== [1/4] Querying and downloading Widevine CDM ==="
 
 PKG_FILE="$WORKDIR/widevine.crx3"
 WV_VERSION=""
 for ffv in "${FF_CANDIDATES[@]}"; do
     [ -n "$ffv" ] || continue
     url="https://aus5.mozilla.org/update/3/GMP/${ffv}/${BUILD_ID}/Linux_x86_64-gcc3/en-US/release/Linux/default/default/update.xml"
-    echo "-> Probando como Firefox $ffv ..."
+    echo "-> Trying as Firefox $ffv ..."
     XML=$(curl -fsSL "$url" 2>/dev/null | tr '\n' ' ') || continue
 
-    # Aísla el bloque <addon id="gmp-widevinecdm" ...> ... </addon>
+    # Isolate the <addon id="gmp-widevinecdm" ...> ... </addon> block
     BLOCK=$(sed -n 's/.*\(<addon id="gmp-widevinecdm".*\)/\1/p' <<< "$XML" | sed 's#</addon>.*#</addon>#')
     [ -n "$BLOCK" ] || continue
     ADDON=$(grep -o '<addon [^>]*>' <<< "$BLOCK" | head -n1)
@@ -41,31 +41,31 @@ for ffv in "${FF_CANDIDATES[@]}"; do
     [ -n "$WV_URL" ] && [ -n "$WV_HASH" ] && [ -n "$v" ] || continue
     [ "${WV_HASH_FN,,}" = "sha512" ] || continue
 
-    echo "   Versión $v"
+    echo "   Version $v"
     for src in "$WV_URL" "$WV_MIRROR"; do
         [ -n "$src" ] || continue
-        echo "   Descargando: $src"
+        echo "   Downloading: $src"
         if curl -fSL --progress-bar -o "$PKG_FILE" "$src"; then
             CALC_HASH=$(sha512sum "$PKG_FILE" | cut -d' ' -f1)
             if [ "${CALC_HASH,,}" = "${WV_HASH,,}" ]; then
                 WV_VERSION="$v"
-                echo "   ✔ Descargado y hash verificado"
+                echo "   ✔ Downloaded and hash verified"
                 break 2
             fi
-            echo "   ✘ Hash no coincide"
+            echo "   ✘ Hash mismatch"
         else
-            echo "   ✘ Descarga fallida"
+            echo "   ✘ Download failed"
         fi
     done
 done
 
 if [ -z "$WV_VERSION" ]; then
-    echo "Error: no se pudo descargar un Widevine válido."
+    echo "Error: could not download a valid Widevine package."
     exit 1
 fi
 
-# Extraer el CRX3: saltar la cabecera (magic "Cr24" + versión + tamaño + cabecera protobuf)
-[ "$(head -c4 "$PKG_FILE")" = "Cr24" ] || { echo "Error: el archivo no es un CRX válido."; exit 1; }
+# Extract the CRX3: skip the header (magic "Cr24" + version + size + protobuf header)
+[ "$(head -c4 "$PKG_FILE")" = "Cr24" ] || { echo "Error: the file is not a valid CRX."; exit 1; }
 HDR_LEN=$(od -An -t u4 -j 8 -N 4 "$PKG_FILE" | tr -d ' ')
 ZIP_FILE="$WORKDIR/widevine.zip"
 tail -c +$((12 + HDR_LEN + 1)) "$PKG_FILE" > "$ZIP_FILE"
@@ -76,12 +76,13 @@ unzip -q "$ZIP_FILE" -d "$EXTRACT_DIR"
 
 CDM_SO=$(find "$EXTRACT_DIR" -name "libwidevinecdm.so" | head -n1)
 if [ -z "$CDM_SO" ]; then
-    echo "Error: el paquete no contiene libwidevinecdm.so."
+    echo "Error: the package does not contain libwidevinecdm.so."
     exit 1
 fi
 CDM_SRC_DIR=$(dirname "$CDM_SO")
+
 echo ""
-echo "=== [2/4] Detectando Zen Browser ==="
+echo "=== [2/4] Detecting Zen Browser ==="
 
 ZEN_BIN=""
 if command -v zen-browser >/dev/null 2>&1; then
@@ -98,14 +99,14 @@ else
 fi
 
 while [ -z "$ZEN_BIN" ]; do
-    read -rp "No se detectó Zen. Ruta completa al ejecutable: " INPUT
+    read -rp "Zen not detected. Full path to the executable: " INPUT
     INPUT="${INPUT/#\~/$HOME}"
-    [ -x "$INPUT" ] && ZEN_BIN="$INPUT" || echo "Ruta no válida: $INPUT"
+    [ -x "$INPUT" ] && ZEN_BIN="$INPUT" || echo "Invalid path: $INPUT"
 done
-echo "-> Zen detectado en: $ZEN_BIN"
+echo "-> Zen detected at: $ZEN_BIN"
 
 echo ""
-echo "=== [3/4] Sandbox de GMP (opcional) ==="
+echo "=== [3/4] GMP sandbox (optional) ==="
 
 if [ "$DISABLE_SANDBOX" -eq 1 ]; then
     REAL_ZEN_BIN=$(readlink -f "$ZEN_BIN")
@@ -117,23 +118,23 @@ export MOZ_DISABLE_GMP_SANDBOX=1
 exec "$REAL_ZEN_BIN" "\$@"
 EOF
     chmod +x "$LAUNCHER"
-    echo "   ✔ Lanzador creado: $LAUNCHER (úsalo para abrir Zen)"
+    echo "   ✔ Launcher created: $LAUNCHER (use it to open Zen)"
 else
-    echo "-> Omitido. Si Widevine crashea, vuelve a ejecutar con --no-gmp-sandbox"
+    echo "-> Skipped. If Widevine crashes, run again with --no-gmp-sandbox"
 fi
 
 echo ""
-echo "=== [4/4] Instalando Widevine en los perfiles de Zen ==="
+echo "=== [4/4] Installing Widevine into Zen profiles ==="
 
 ZEN_PROFILES_DIR=""
 for d in "$HOME/.config/zen" "$HOME/.zen" "$HOME/.var/app/app.zen_browser.zen/.zen"; do
     [ -d "$d" ] && { ZEN_PROFILES_DIR="$d"; break; }
 done
 if [ -z "$ZEN_PROFILES_DIR" ]; then
-    read -rp "Ruta a la carpeta de perfiles de Zen: " ZEN_PROFILES_DIR
+    read -rp "Path to the Zen profiles folder: " ZEN_PROFILES_DIR
     ZEN_PROFILES_DIR="${ZEN_PROFILES_DIR/#\~/$HOME}"
 fi
-echo "-> Perfiles en: $ZEN_PROFILES_DIR"
+echo "-> Profiles in: $ZEN_PROFILES_DIR"
 
 pkill -x zen-bin 2>/dev/null || true
 pkill -x zen 2>/dev/null || true
@@ -144,9 +145,9 @@ for profile_dir in "$ZEN_PROFILES_DIR"/*; do
     [ -d "$profile_dir" ] && [ -f "$profile_dir/prefs.js" ] || continue
     PROFILES_FOUND=$((PROFILES_FOUND + 1))
     name=$(basename "$profile_dir")
-    echo "--> Perfil: $name"
+    echo "--> Profile: $name"
 
-       # Instalar CDM en gmp-widevinecdm/<versión>/ (libwidevinecdm.so + manifest.json)
+    # Install CDM into gmp-widevinecdm/<version>/ (libwidevinecdm.so + manifest.json)
     TARGET="$profile_dir/gmp-widevinecdm/$WV_VERSION"
     rm -rf "$profile_dir/gmp-widevinecdm" "$profile_dir/gmp"
     mkdir -p "$TARGET"
@@ -155,10 +156,10 @@ for profile_dir in "$ZEN_PROFILES_DIR"/*; do
     if [ -f "$EXTRACT_DIR/manifest.json" ]; then
         cp "$EXTRACT_DIR/manifest.json" "$TARGET/manifest.json"
     else
-        echo "Error: el paquete no trae manifest.json"; exit 1
+        echo "Error: the package does not include manifest.json"; exit 1
     fi
 
-    # Limpiar prefs viejas (también de prefs.js, por si quedó basura del script original)
+    # Clean old prefs (also from prefs.js, in case leftovers remain from the original script)
     for f in "$profile_dir/user.js" "$profile_dir/prefs.js"; do
         [ -f "$f" ] && sed -i '/media\.eme\.enabled/d;/media\.gmp-widevinecdm/d;/media\.gmp-provider/d;/browser\.eme\.ui/d' "$f"
     done
@@ -178,13 +179,13 @@ user_pref("media.gmp-widevinecdm.lastUpdate", $NOW);
 user_pref("media.gmp-widevinecdm.autoupdate", false);
 EOF
 
-    echo "   ✔ Instalado Widevine $WV_VERSION"
+    echo "   ✔ Installed Widevine $WV_VERSION"
 done
 
 if [ "$PROFILES_FOUND" -eq 0 ]; then
-    echo "Aviso: no se encontraron perfiles con prefs.js en $ZEN_PROFILES_DIR."
-    echo "Abre Zen al menos una vez para crear el perfil y vuelve a ejecutar el script."
+    echo "Warning: no profiles with prefs.js found in $ZEN_PROFILES_DIR."
+    echo "Open Zen at least once to create the profile, then run the script again."
 fi
 
 echo ""
-echo "=== ¡Listo! Widevine $WV_VERSION instalado. Abre Zen y comprueba en about:addons > Plugins ==="
+echo "=== Done! Widevine $WV_VERSION installed. Open Zen and check about:addons > Plugins ==="
