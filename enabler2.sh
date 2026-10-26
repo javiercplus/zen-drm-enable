@@ -146,18 +146,25 @@ for profile_dir in "$ZEN_PROFILES_DIR"/*; do
     name=$(basename "$profile_dir")
     echo "--> Perfil: $name"
 
-    # Instalar CDM en gmp-widevinecdm/<versión>/ (estructura que espera Firefox)
+       # Instalar CDM en gmp-widevinecdm/<versión>/ (libwidevinecdm.so + manifest.json)
     TARGET="$profile_dir/gmp-widevinecdm/$WV_VERSION"
-    rm -rf "$profile_dir/gmp-widevinecdm"
+    rm -rf "$profile_dir/gmp-widevinecdm" "$profile_dir/gmp"
     mkdir -p "$TARGET"
-    cp -r "$CDM_SRC_DIR"/. "$TARGET/"
+    cp "$CDM_SO" "$TARGET/libwidevinecdm.so"
     chmod 755 "$TARGET/libwidevinecdm.so"
+    if [ -f "$EXTRACT_DIR/manifest.json" ]; then
+        cp "$EXTRACT_DIR/manifest.json" "$TARGET/manifest.json"
+    else
+        echo "Error: el paquete no trae manifest.json"; exit 1
+    fi
 
-    # user.js: se conservan las líneas ajenas y se reemplazan solo las de Widevine
-    USERJS="$profile_dir/user.js"
-    touch "$USERJS"
-    sed -i '/media\.eme\.enabled/d;/media\.gmp-widevinecdm/d;/media\.gmp-provider/d;/browser\.eme\.ui/d' "$USERJS"
-    cat >> "$USERJS" << EOF
+    # Limpiar prefs viejas (también de prefs.js, por si quedó basura del script original)
+    for f in "$profile_dir/user.js" "$profile_dir/prefs.js"; do
+        [ -f "$f" ] && sed -i '/media\.eme\.enabled/d;/media\.gmp-widevinecdm/d;/media\.gmp-provider/d;/browser\.eme\.ui/d' "$f"
+    done
+
+    NOW=$(date +%s)
+    cat >> "$profile_dir/user.js" << EOF
 user_pref("browser.eme.ui.enabled", true);
 user_pref("media.eme.enabled", true);
 user_pref("media.gmp-provider.enabled", true);
@@ -165,6 +172,9 @@ user_pref("media.gmp-widevinecdm.enabled", true);
 user_pref("media.gmp-widevinecdm.visible", true);
 user_pref("media.gmp-widevinecdm.abi", "x86_64-gcc3");
 user_pref("media.gmp-widevinecdm.version", "$WV_VERSION");
+user_pref("media.gmp-widevinecdm.lastInstallStart", $((NOW - 5)));
+user_pref("media.gmp-widevinecdm.lastDownload", $NOW);
+user_pref("media.gmp-widevinecdm.lastUpdate", $NOW);
 user_pref("media.gmp-widevinecdm.autoupdate", false);
 EOF
 
