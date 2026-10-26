@@ -6,5 +6,5 @@
 ### Do you need waterfox or firefox installed!.
 `curl -sSL https://github.com/javiercplus/zen-drm-enable/raw/refs/heads/main/enabler.sh | bash`  
 
-### TEST 
+### TESTED WITH:
 https://partner.widevine.com/player
